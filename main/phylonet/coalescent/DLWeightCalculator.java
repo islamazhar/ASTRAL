@@ -181,5 +181,9 @@ class DLWeightCalculator extends AbstractWeightCalculator<STBipartition>{
 		// System.err.println("Weight of " + biggerSTB + " is " + weight);
 		return weight;
 	}
+	Long calculateWeightTriplet(STBipartition stb,AbstractComputeMinCostTask<STBipartition> minCostTask){
+		return null;
+	}
+	
 
 }

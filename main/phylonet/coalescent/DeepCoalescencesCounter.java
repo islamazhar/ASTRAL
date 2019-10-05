@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
+import phylonet.coalescent.MGDInference_DP.TaxonNameMap;
 import phylonet.network.io.ExNewickException;
 import phylonet.network.io.ExNewickReader;
 import phylonet.network.model.NetNode;
@@ -369,6 +370,21 @@ public class DeepCoalescencesCounter {
 
 		return weight;
 	}
+	
+	public static int getClusterCoalNum(List<Tree> trees,
+			STITreeCluster cluster, TaxonNameMap taxonNameMap, boolean rooted) {
+		int weight = 0;
+
+		for (Tree tr : trees) {
+			if (rooted) {
+				weight += getClusterCoalNum_rooted(tr, cluster, taxonNameMap);
+			} else {
+				weight += getClusterCoalNum_unrooted(tr, cluster, taxonNameMap);
+			}
+		}
+
+		return weight;
+	}
 
 	public static int getClusterCoalNumMap(List<Tree> trees,
 			STITreeCluster cluster, boolean rooted) {
@@ -387,11 +403,16 @@ public class DeepCoalescencesCounter {
 
 	public static int getClusterCoalNum_rooted(Tree tr, STITreeCluster cluster) {
 		Map map = new HashMap();
+		List taxa = new LinkedList();
+		
+		for (String t : cluster.getTaxa()) {
+			taxa.add(t);
+		}
 		
 		int count = 0;
 		for (TNode node : tr.postTraverse()) {
 			if (node.isLeaf()) {
-				int index = GlobalMaps.taxonIdentifier.taxonId(node.getName());
+				int index = taxa.indexOf(node.getName());
 				BitSet bs = new BitSet();
 
 				bs.set(index);
@@ -434,9 +455,9 @@ public class DeepCoalescencesCounter {
 		for (String leaf : taxa) {
 			taxalist.add(leaf);
 		}
-		STITreeCluster concluster = new STITreeCluster(GlobalMaps.taxonIdentifier);
-		for (Integer leaf : cluster) {
-			if (taxalist.contains(GlobalMaps.taxonIdentifier.getTaxonName(leaf))) {
+		STITreeCluster concluster = new STITreeCluster(taxa);
+		for (String leaf : cluster.getClusterLeaves()) {
+			if (taxalist.contains(leaf)) {
 				concluster.addLeaf(leaf);
 			}
 		}
@@ -521,6 +542,147 @@ public class DeepCoalescencesCounter {
 		return Math.max(0, ((List) coveragelist).size() - 1);
 	}
 
+
+	public static int getClusterCoalNum_rooted(Tree tr, STITreeCluster cluster,
+			TaxonNameMap taxonNameMap) {
+		Map map = new HashMap();
+		List taxa = new LinkedList();
+
+		for (String t : cluster.getTaxa()) {
+			taxa.add(t);
+		}
+
+		int count = 0;
+		for (TNode node : tr.postTraverse()) {
+			if (node.isLeaf()) {
+				String stTaxon = (String) taxonNameMap.getTaxonName(node.getName());
+				int index = taxa.indexOf(stTaxon);
+				BitSet bs = new BitSet(taxa.size());
+				bs.set(index);
+				if (cluster.containsCluster(bs)) {
+					count++;
+				}
+
+				map.put(node, bs);
+			} else {
+				BitSet bs = new BitSet(taxa.size());
+				int intersect = 0;
+				int childCount = node.getChildCount();
+				for (TNode child : node.getChildren()) {
+					BitSet v = (BitSet) map.get(child);
+					bs.or(v);
+					if ((childCount <= 2) || (!cluster.containsCluster(v)))
+						continue;
+					intersect++;
+				}
+
+				if (cluster.containsCluster(bs)) {
+					count -= node.getChildCount();
+					count++;
+				} else if (intersect > 1) {
+					count -= intersect;
+					count++;
+				}
+
+				map.put(node, bs);
+			}
+		}
+		return Math.max(count - 1, 0);
+	}
+
+	public static int getClusterCoalNum_unrooted(Tree tr,
+			STITreeCluster cluster, TaxonNameMap taxonNameMap) {
+		Map map = new HashMap();
+		List gtTaxalist = new ArrayList();
+		String[] gtTaxa = tr.getLeaves();
+		int ngtTaxa = gtTaxa.length;
+		for (String leaf : gtTaxa) {
+			gtTaxalist.add(leaf);
+		}
+		STITreeCluster concluster = new STITreeCluster(gtTaxa);
+		for (TNode n : tr.getNodes()) {
+			if ((!n.isLeaf())
+					|| (!cluster.containsLeaf((String) taxonNameMap.getTaxonName(n.getName()))))
+				continue;
+			concluster.addLeaf(n.getName());
+		}
+
+		Object coveragelist = new ArrayList();
+		for (int i = concluster.getBitSet().nextSetBit(0); i >= 0; i = concluster
+				.getBitSet().nextSetBit(i + 1)) {
+			BitSet bs = new BitSet(ngtTaxa);
+			((BitSet) bs).set(i);
+			((List) coveragelist).add(bs);
+		}
+		int intersect;
+		BitSet virtualbs;
+		for (Object tn = tr.postTraverse().iterator(); ((Iterator) tn)
+				.hasNext();) {
+			TNode node = (TNode) ((Iterator) tn).next();
+			if (((List) coveragelist).size() <= 1) {
+				break;
+			}
+			BitSet bs = new BitSet(ngtTaxa);
+			intersect = 0;
+			virtualbs = new BitSet(ngtTaxa);
+			if (node.isLeaf()) {
+				int index = gtTaxalist.indexOf(node.getName());
+				bs.set(index);
+				map.put(node, bs);
+			} else {
+				for (TNode child : node.getChildren()) {
+					BitSet v = (BitSet) map.get(child);
+					bs.or(v);
+					if (concluster.containsCluster(v)) {
+						intersect++;
+						virtualbs.or(v);
+					}
+				}
+
+				if ((concluster.containsCluster(bs)) || (intersect > 1)) {
+					if (concluster.containsCluster(bs)) {
+						virtualbs = bs;
+					}
+					for (int i = 0; i < ((List) coveragelist).size(); i++) {
+						BitSet exbs = (BitSet) ((List) coveragelist).get(i);
+						BitSet temp = (BitSet) virtualbs.clone();
+						temp.and(exbs);
+						if (temp.equals(exbs)) {
+							((List) coveragelist).remove(i);
+							i--;
+						}
+					}
+					((List) coveragelist).add(virtualbs);
+				}
+
+				map.put(node, bs);
+			}
+
+			if (!node.isRoot()) {
+				BitSet complementbs = (BitSet) bs.clone();
+				complementbs.flip(0, gtTaxa.length);
+				if (intersect > 0) {
+					complementbs.or(virtualbs);
+				}
+				if (concluster.containsCluster(complementbs)) {
+					for (int i = 0; i < ((List) coveragelist).size(); i++) {
+						BitSet exbs = (BitSet) ((List) coveragelist).get(i);
+						BitSet temp = (BitSet) complementbs.clone();
+						temp.and(exbs);
+						if (temp.equals(exbs)) {
+							((List) coveragelist).remove(i);
+							i--;
+						}
+					}
+					((List) coveragelist).add(complementbs);
+					break;
+				}
+			}
+		}
+		return Math.max(0, ((List) coveragelist).size() - 1);
+	}
+
+	
 	public static int getClusterCoalNum_rootedMap(Tree tr, STITreeCluster cluster) {
 		Map map = new HashMap();
 		int count = 0;

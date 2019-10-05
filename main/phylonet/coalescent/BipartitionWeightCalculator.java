@@ -130,6 +130,11 @@ class BipartitionWeightCalculator extends AbstractWeightCalculator<Tripartition>
 		// TODO Auto-generated method stub
 		return null;
 	}
+	Long calculateWeightTriplet(STBipartition t,AbstractComputeMinCostTask<Tripartition> minCostTask)
+	{
+		return null;
+	}
+	
 
 	public Results getWeight(Quadrapartition [] quad ) {
 		long [] fi = {0l,0l,0l};

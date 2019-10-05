@@ -14,6 +14,7 @@ public class WQComputeMinCostTask extends AbstractComputeMinCostTask<Tripartitio
 			IClusterCollection clusters) {
 		super(inference, v, clusters);
 		this.wqDataCollection = (WQDataCollection)inference.dataCollection;
+		
 	}
 	
 	protected double adjustWeight(long clusterLevelCost, Vertex smallV,

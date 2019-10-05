@@ -120,11 +120,13 @@ public abstract class AbstractClusterCollection implements IClusterCollection, C
 		
 		int clusterSize = topClusterLength;
 		Vertex v = this.getTopVertex();
+	
 		for (int i = 1; i <= (clusterSize / 2); i++) {
 			Set<Vertex> left = this.clusters.get(i);
 			if (left == null || left.size() == 0) {
 				continue;
 			}
+
 			Set<Vertex> right = this.clusters.get(clusterSize - i);
 			if (right == null || right.size() == 0) {
 				continue;
@@ -138,6 +140,7 @@ public abstract class AbstractClusterCollection implements IClusterCollection, C
 					VertexPair bi = new VertexPair(
 							smallV, bigv, v);
 					ret.add(bi);
+				//	System.out.println("Bipartition In building clusterResolutions \n\t"+bi.cluster1.toString()+"|"+bi.cluster2.toString());
 				}
 			}
 		}

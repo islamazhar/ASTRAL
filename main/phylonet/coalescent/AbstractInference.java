@@ -29,6 +29,7 @@ public abstract class AbstractInference<T> {
 	//protected boolean rooted = true;
 	//protected boolean extrarooted = true;
 	protected List<Tree> trees;
+	protected List<Tree> treesRooted ;
 	protected List<Tree> extraTrees = null;
 	protected List<Tree> toRemoveExtraTrees = null;
 	protected boolean removeExtraTree;
@@ -50,11 +51,12 @@ public abstract class AbstractInference<T> {
 	
 	double estimationFactor = 0;
 	
-	public AbstractInference(Options options, List<Tree> trees,
+	public AbstractInference(Options options, List<Tree> trees, List<Tree> treesRooted,
 			List<Tree> extraTrees, List<Tree> toRemoveExtraTrees) {
 		super();
 		this.options = options;
 		this.trees = trees;
+		this.treesRooted = treesRooted;
 		this.extraTrees = extraTrees;
 		this.removeExtraTree = options.isRemoveExtraTree();
 		this.toRemoveExtraTrees = toRemoveExtraTrees;
@@ -152,7 +154,7 @@ public abstract class AbstractInference<T> {
 		}
 */
 		Vertex all = (Vertex) clusters.getTopVertex();
-
+		//System.out.println(all.toString());
 		System.err.println("Size of largest cluster: " +all.getCluster().getClusterSize());
 
 		try {
@@ -352,12 +354,13 @@ public abstract class AbstractInference<T> {
 		System.err.println("Dynamic Programming starting after "
 				+ (System.currentTimeMillis() - startTime) / 1000.0D + " secs");
 		
+		
 	}
 	abstract void setupMisc();
 
 	public List<Solution> inferSpeciesTree() {
-
 		
+		System.out.println(this.treesRooted.size());
 		List<Solution> solutions;		
 
 		solutions = findTreesByDP(this.dataCollection.clusters);

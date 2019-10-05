@@ -470,6 +470,8 @@ public class CommandLine{
 		double wh = 1.0D;
 		
 		List<Tree> mainTrees = new ArrayList<Tree>();
+		List<Tree> mainTreesRooted = new ArrayList<Tree>();
+		
 		List<List<String>> bootstrapInputSets = new ArrayList<List<String>>();
         BufferedWriter outbuffer;
         
@@ -511,7 +513,10 @@ public class CommandLine{
         
 
         Options options = readOptions(criterion, rooted, extrarooted, wh, config,
-        		mainTrees, bootstrapInputSets);
+				mainTrees, bootstrapInputSets);
+		Options optionsRooted = readOptions(criterion, true, extrarooted, wh, config,
+				mainTreesRooted, bootstrapInputSets);
+		
         
         File outfile = config.getFile("output file");  
         if (outfile == null) {
@@ -528,12 +533,11 @@ public class CommandLine{
         if (config.getFile("score species trees") != null) {
         	System.err.println("Scoring "+config.getFile("score species trees"));
         	toScore = readTreeFileAsString(config.getFile("score species trees"));
-            runScore(criterion, rooted, mainTrees, outbuffer,
+            runScore(criterion, rooted, mainTrees,mainTreesRooted, outbuffer,
 					options, outgroup, toScore);
         } else {
-        
-	        runInference(config, criterion, rooted, extrarooted, 
-	        		mainTrees, outbuffer, bootstrapInputSets,  options, outgroup);
+			runInference(config, criterion, rooted, extrarooted, 
+	        		mainTrees, mainTreesRooted,outbuffer, bootstrapInputSets,  options, outgroup);
         }
         // TODO: debug info
         System.err.println("Weight calculation took " + Polytree.time / 1000000000.0D + " secs");
@@ -544,13 +548,13 @@ public class CommandLine{
 
 
 	private static void runScore(int criterion, boolean rooted,
-			List<Tree> mainTrees,
+			List<Tree> mainTrees,List<Tree> mainTreesRooted,
 			BufferedWriter outbuffer, Options options, String outgroup,
 			List<String> toScore) throws FileNotFoundException, IOException {
 		System.err.println("Scoring: " + toScore.size() +" trees");
 		
 		AbstractInference inference =
-		        initializeInference(criterion, mainTrees, new ArrayList<Tree>(), new ArrayList<Tree>(), options);           
+		        initializeInference(criterion, mainTrees,mainTreesRooted, new ArrayList<Tree>(), new ArrayList<Tree>(), options);           
 		double score = Double.NEGATIVE_INFINITY;
 		List<Tree> bestTree = new ArrayList<Tree>(); 
 		for (String trs : toScore) {   
@@ -559,6 +563,7 @@ public class CommandLine{
 		             rooted, true, true, null, 1, false? //config.getBoolean("scoreall")? 
 		            		 outgroup: null);
 			Tree tr = trees.get(0);
+
 
 			double nscore = inference.scoreSpeciesTreeWithGTLabels(tr, true);
 			
@@ -591,7 +596,8 @@ public class CommandLine{
 
 	private static void runInference(JSAPResult config,
 			int criterion, boolean rooted, boolean extrarooted,
-			List<Tree> mainTrees, BufferedWriter outbuffer,
+			List<Tree> mainTrees,
+			List<Tree> mainTreesRooted, BufferedWriter outbuffer,
 			List<List<String>> bootstrapInputSets, 
 			Options options, String outgroup) throws JSAPException, IOException,
 			FileNotFoundException {
@@ -643,7 +649,7 @@ public class CommandLine{
 		    readInputTrees(trees, input, rooted, false, false, options.getMinLeaves(),
             		config.getInt("branch annotation level"), null);
 		    bootstraps.add(runOnOneInput(criterion, 
-		             extraTrees,toRemoveExtraTrees, outbuffer, trees, null, outgroup, options));
+		             extraTrees,toRemoveExtraTrees, outbuffer, trees,mainTreesRooted, null, outgroup, options));
 		}
 		
 		if (bootstraps != null && bootstraps.size() != 0) {
@@ -655,17 +661,20 @@ public class CommandLine{
 		}
 
 		System.err.println("\n======== Running the main analysis");
-		runOnOneInput(criterion, extraTrees, toRemoveExtraTrees,outbuffer, mainTrees, bootstraps, 
+		
+	        
+		runOnOneInput(criterion, extraTrees, toRemoveExtraTrees,outbuffer, mainTrees,mainTreesRooted, bootstraps, 
 		        outgroup, options);
 		   
 		outbuffer.close();
 	}
 
     private static Tree runOnOneInput(int criterion, List<Tree> extraTrees,
-    		List<Tree> toRemoveExtraTrees, BufferedWriter outbuffer, List<Tree> input, 
+    		List<Tree> toRemoveExtraTrees, BufferedWriter outbuffer, List<Tree> input, List<Tree> inputRooted,
             Iterable<Tree> bootstraps, String outgroup, Options options) {
         long startTime;
-        startTime = System.currentTimeMillis();
+		startTime = System.currentTimeMillis();
+		
 //        int removedTrees = 0;
 //        Iterator<Tree> it = input.iterator();
 //        while(it.hasNext()){
@@ -679,8 +688,10 @@ public class CommandLine{
 //        	}
 //        }
 //        System.err.println("removed trees"+ removedTrees);	
+		
+
         AbstractInference inference =
-                initializeInference(criterion, input, extraTrees,toRemoveExtraTrees, options);
+                initializeInference(criterion, input,inputRooted, extraTrees,toRemoveExtraTrees, options);
         
         inference.setup(); 
         
@@ -706,7 +717,7 @@ public class CommandLine{
         
         System.err.println(st.toNewick());
         
-        st.rerootTreeAtNode(st.getNode(outgroup));
+        //st.rerootTreeAtNode(st.getNode(outgroup));
 		Trees.removeBinaryNodes((MutableTree) st);
    
 		// TODO: MULTIND. 
@@ -729,14 +740,18 @@ public class CommandLine{
     }
 
     private static AbstractInference initializeInference(int criterion, 
-            List<Tree> trees, List<Tree> extraTrees,
+            List<Tree> trees, List<Tree> treesRooted,List<Tree> extraTrees,
             List<Tree> toRemoveExtraTrees, Options options) {
-        AbstractInference inference;		
+		
+		AbstractInference inference;		
+		
 		if (criterion == 1 || criterion == 0) {
+			System.out.println("initializeinference : ");
+			System.out.println(treesRooted.size());
 			inference = new DLInference(options, 
-					trees, extraTrees, toRemoveExtraTrees);			
+					trees, treesRooted,extraTrees, toRemoveExtraTrees);			
 		} else if (criterion == 2) {
-			inference = new WQInference(options, trees, extraTrees, toRemoveExtraTrees);
+			inference = new WQInference(options, trees,treesRooted, extraTrees, toRemoveExtraTrees);
 		} else {
 			throw new RuntimeException("criterion not set?");
 		}		

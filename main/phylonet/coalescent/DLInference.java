@@ -14,9 +14,9 @@ public class DLInference extends AbstractInference<STBipartition> {
 	private int optimizeDuploss = 1; //one means dup, 3 means duploss
 	//Map<STITreeCluster, Vertex> clusterToVertex;
 	
-	public DLInference(Options options, List<Tree> trees,
+	public DLInference(Options options, List<Tree> trees, List<Tree> rootedTrees,
 			List<Tree> extraTrees, List<Tree> extraTreesToRemove) {
-		super(options, trees, extraTrees,extraTreesToRemove);
+		super(options, trees,rootedTrees, extraTrees,extraTreesToRemove);
 		this.optimizeDuploss = options.isDuploss() ? 3 : 1;
 	}
 

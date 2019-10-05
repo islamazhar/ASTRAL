@@ -12,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Stack;
+import java.util.Arrays; 
 
 import phylonet.coalescent.BipartitionWeightCalculator.Quadrapartition;
 import phylonet.coalescent.BipartitionWeightCalculator.Results;
@@ -27,9 +28,10 @@ public class WQInference extends AbstractInference<Tripartition> {
 	int forceAlg = -1;
 	long maxpossible;
 
-	public WQInference(Options inOptions, List<Tree> trees, List<Tree> extraTrees, List<Tree> toRemoveExtraTrees) {
-		super(inOptions, trees, extraTrees, toRemoveExtraTrees);
-
+	public WQInference(Options inOptions, List<Tree> trees, List<Tree> treesRooted,List<Tree> extraTrees, List<Tree> toRemoveExtraTrees) {
+		super(inOptions, trees, treesRooted,extraTrees, toRemoveExtraTrees);
+		//System.out.println(treesRooted.size());
+		
 		this.forceAlg = inOptions.getAlg();
 	}
 
@@ -45,6 +47,12 @@ public class WQInference extends AbstractInference<Tripartition> {
 					((WQWeightCalculator)weightCalculator).algorithm).polytree.maxScore / 4L
 					- unresolvableQuartets();
 		}
+		else if (weightCalculator instanceof WQWeightCalculator
+		&& ((WQWeightCalculator)weightCalculator).algorithm instanceof WQWeightCalculator.SetWeightCalculator){
+	return ((WQWeightCalculator.SetWeightCalculator)
+			((WQWeightCalculator)weightCalculator).algorithm).finalWeight / 4L;
+			//- unresolvableQuartets();
+}
 
 		//TODO: MUTIND: In the multi individual case, some quartets can never be satisfied. 
 		//      We should compute their number and substract that from maxpossible here. 
@@ -130,6 +138,7 @@ public class WQInference extends AbstractInference<Tripartition> {
 
 		this.weightCalculator.initializeWeightContainer(
 				this.trees.size() *  GlobalMaps.taxonIdentifier.taxonCount() * 2);
+
 	}
 
 	/**
@@ -160,8 +169,12 @@ public class WQInference extends AbstractInference<Tripartition> {
 
 		Stack<STITreeCluster> stack = new Stack<STITreeCluster>();
 		long sum = 0l;
-
+		long maxtripletscore = -1;
+		int is=-1,js=-1,ks=-1;
+		long tripletscore = 0l;
 		for (TNode node: st.postTraverse()) {
+			
+			
 			if (node.isLeaf()) {
 				String nodeName = node.getName(); //GlobalMaps.TaxonNameMap.getSpeciesName(node.getName());
 
@@ -174,16 +187,19 @@ public class WQInference extends AbstractInference<Tripartition> {
 			} else {
 				ArrayList<STITreeCluster> childbslist = new ArrayList<STITreeCluster>();
 				BitSet bs = new BitSet(GlobalMaps.taxonIdentifier.taxonCount());
+					
 				for (TNode child: node.getChildren()) {
 					STITreeCluster pop = stack.pop();
 					childbslist.add(pop);
 					bs.or(pop.getBitSet());
 				}
-
+				STBipartition bip = new STBipartition(childbslist.get(0), childbslist.get(1));
+				long tripsc = weightCalculator.calculateWeightTriplet(bip, null);
+				tripletscore += tripsc;
+				
 				STITreeCluster cluster = GlobalMaps.taxonIdentifier.newCluster();
 				cluster.setCluster((BitSet) bs.clone());
-
-				//((STINode)node).setData(new GeneTreeBitset(node.isRoot()? -2: -1));
+				
 				stack.add(cluster);
 
 
@@ -192,32 +208,44 @@ public class WQInference extends AbstractInference<Tripartition> {
 					childbslist.add(remaining);
 				}
 				if (childbslist.size() > 3) {
-					/*for (STITreeCluster chid :childbslist) {
-						System.err.print(chid.getClusterSize()+" ");
-					}
-					System.err.println(" (polytomy)");*/
 					if (this.getBranchAnnotation() % 2 == 0) {
 						continue;
 					}
 				}
-
 				for (int i = 0; i < childbslist.size(); i++) {
 					for (int j = i+1; j < childbslist.size(); j++) {
 						for (int k = j+1; k < childbslist.size(); k++) {
 							Tripartition trip = new Tripartition(childbslist.get(i),  childbslist.get(j), childbslist.get(k));
 							Long s = weightCalculator.getWeight(trip, null);
-							sum += s;
+							sum+=s;
 						}
 					}					       
-				}
+				}		
 			}
+			
 		}
-
-
-		System.err.println("Final quartet score is: " + sum/4l);
-		System.err.println("Final normalized quartet score is: "+ (sum/4l+0.)/this.maxpossible);
-		//System.out.println(st.toNewickWD());
-
+		System.out.println("Triplet Score : "+ tripletscore);
+		System.out.println("Quartet Score : "+ sum/4l);
+		long quartetscore  = sum/4l;
+		sum+=4l*tripletscore;
+		try{    
+			FileWriter fw=new FileWriter("logfile.csv",true);  
+			List<List<String>> rows = Arrays.asList(
+				Arrays.asList(sum/4l+"", quartetscore+"", tripletscore+"")
+			);
+ 
+			for (List<String> rowData : rows) {
+				fw.append(String.join(",", rowData));
+				fw.append("\n");
+			}
+			fw.flush();
+			fw.close();    
+		   }catch(Exception e){System.out.println(e);}     
+		
+		
+		System.err.println("Final Triplet + Quartet score is: " + sum/4l);
+		System.err.println("Final normalized  triplet + quartet score is: "+ (sum/4l+0.0)/this.maxpossible);
+		
 		if (this.getBranchAnnotation() == 0){
 			for (TNode n: st.postTraverse()) {
 				((STINode) n).setData(null);
@@ -230,6 +258,7 @@ public class WQInference extends AbstractInference<Tripartition> {
 				return logscore;
 			}
 		}
+		//System.out.println("Maxpossible "+this.maxpossible);
 		return (sum/4l+0.)/this.maxpossible;
 
 	}

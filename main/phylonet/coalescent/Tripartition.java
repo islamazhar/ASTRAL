@@ -7,9 +7,14 @@ public class Tripartition extends AbstractPartition {
 	STITreeCluster cluster1;
 	STITreeCluster cluster2;	
 	STITreeCluster cluster3;
+	STBipartition bipartition;
 	private int _hash = 0;
 	
 	public Tripartition(STITreeCluster c1, STITreeCluster c2) {
+		//System.out.println("Tripartition class");
+		bipartition = new STBipartition(c1, c2);
+		//System.out.println("bipartition "+bipartition.toString());
+		
 		STITreeCluster c3 = new STITreeCluster(c1);
 		c3.getBitSet().or(c2.getBitSet());
 		c3.getBitSet().flip(0,c1.getBitSet().size());
@@ -17,11 +22,16 @@ public class Tripartition extends AbstractPartition {
 	}
 	
 	public Tripartition(STITreeCluster c1, STITreeCluster c2, STITreeCluster c3) {
+		//System.out.println("Tripartition class");
+		bipartition = new STBipartition(c1, c2);
+		//System.out.println("bipartition "+bipartition.toString());
+		
 		
 		initialize(c1, c2, c3);
 	}
 	
 	public Tripartition(STITreeCluster c1, STITreeCluster c2, STITreeCluster c3, boolean checkRepeats) {
+		bipartition = new STBipartition(c1, c2);
 		if (checkRepeats) initialize(c1, c2, c3);
 		else {
 			cluster1 = c1;

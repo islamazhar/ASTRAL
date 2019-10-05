@@ -42,7 +42,8 @@ public abstract class AbstractWeightCalculator<T> implements Cloneable {
 			//ICalculateWeightTask<T> weigthWork = getWeightCalculateTask(t);
 			//prepareWeightTask(weigthWork, minCostTask);
 			// MP_VERSION: smallWork.fork();
-			weight = TESTRUN ? 0 : calculateWeight(t, minCostTask);
+			//System.out.println("AbstractWeightCalculator "+t.toString());
+			weight = TESTRUN ? 0 : (calculateWeight(t, minCostTask));//+calculateWeightTriplet(t,minCostTask));
 			int count;
 			if (save && !TESTRUN ) {
 				weights.put(t, weight);
@@ -63,7 +64,10 @@ public abstract class AbstractWeightCalculator<T> implements Cloneable {
 		return weight;
 	}
 	
+	//abstract Long getTripartitionweight(T t,AbstractComputeMinCostTask<T> minCostTask);
+	
 	abstract Long calculateWeight(T t, AbstractComputeMinCostTask<T> minCostTask);
+	abstract Long calculateWeightTriplet(STBipartition trip,AbstractComputeMinCostTask<T> minCostTask);
 	
 	public abstract void preCalculateWeights(List<Tree> trees, List<Tree> extraTrees);
 	
